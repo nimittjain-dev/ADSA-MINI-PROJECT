@@ -1,0 +1,165 @@
+#include <algorithm>
+#include <iostream>
+#include <map>
+#include <queue>
+#include <set>
+#include <string>
+#include <vector>
+using namespace std;
+
+class SocialNetwork {
+    map<string, set<string>> graph;  // user -> friends (sorted)
+
+    bool exists(const string& u) const { return graph.count(u) > 0; }
+
+    void dfs(const string& node, set<string>& visited, vector<string>& order) {
+        visited.insert(node);
+        order.push_back(node);
+        for (const string& nxt : graph[node])
+            if (!visited.count(nxt)) dfs(nxt, visited, order);
+    }
+
+    static void printList(const vector<string>& v, const string& sep) {
+        for (size_t i = 0; i < v.size(); i++) cout << (i ? sep : "") << v[i];
+        cout << "\n";
+    }
+
+public:
+    void addUser(const string& name) {
+        if (exists(name)) { cout << "'" << name << "' already exists.\n"; return; }
+        graph[name] = {};
+        cout << "User '" << name << "' added.\n";
+    }
+
+    void addConnection(const string& a, const string& b) {
+        if (!exists(a) || !exists(b)) { cout << "Both users must exist first.\n"; return; }
+        if (a == b) { cout << "A user cannot befriend themselves.\n"; return; }
+        if (graph[a].count(b)) { cout << a << " and " << b << " are already friends.\n"; return; }
+        graph[a].insert(b);
+        graph[b].insert(a);  // undirected: friendship is mutual
+        cout << a << " and " << b << " are now friends.\n";
+    }
+
+    void showFriends(const string& name) {
+        if (!exists(name)) { cout << "User not found.\n"; return; }
+        cout << name << "'s friends: ";
+        if (graph[name].empty()) { cout << "none\n"; return; }
+        printList(vector<string>(graph[name].begin(), graph[name].end()), ", ");
+    }
+
+    void mutualFriends(const string& a, const string& b) {
+        if (!exists(a) || !exists(b)) { cout << "Both users must exist.\n"; return; }
+        vector<string> common;
+        set_intersection(graph[a].begin(), graph[a].end(),
+                         graph[b].begin(), graph[b].end(), back_inserter(common));
+        cout << "Mutual friends of " << a << " and " << b << ": ";
+        if (common.empty()) cout << "none\n";
+        else printList(common, ", ");
+    }
+
+    // BFS: shortest connection path
+    void bfsPath(const string& start, const string& target) {
+        if (!exists(start) || !exists(target)) { cout << "Both users must exist.\n"; return; }
+        set<string> visited = {start};
+        queue<vector<string>> q;
+        q.push({start});
+        while (!q.empty()) {
+            vector<string> path = q.front();
+            q.pop();
+            const string node = path.back();
+            if (node == target) {
+                cout << "Shortest connection: ";
+                for (size_t i = 0; i < path.size(); i++) cout << (i ? " -> " : "") << path[i];
+                cout << "  (" << path.size() - 1 << " degree(s) apart)\n";
+                return;
+            }
+            for (const string& nxt : graph[node]) {
+                if (!visited.count(nxt)) {
+                    visited.insert(nxt);
+                    vector<string> np = path;
+                    np.push_back(nxt);
+                    q.push(np);
+                }
+            }
+        }
+        cout << "No connection between " << start << " and " << target << ".\n";
+    }
+
+    void suggestFriends(const string& name) {
+        if (!exists(name)) { cout << "User not found.\n"; return; }
+        set<string> suggestions;
+        for (const string& f : graph[name])
+            for (const string& fof : graph[f])
+                if (fof != name && !graph[name].count(fof)) suggestions.insert(fof);
+        cout << "Suggestions for " << name << ": ";
+        if (suggestions.empty()) cout << "none\n";
+        else printList(vector<string>(suggestions.begin(), suggestions.end()), ", ");
+    }
+
+    void bfsTraversal(const string& start) {
+        if (!exists(start)) { cout << "User not found.\n"; return; }
+        set<string> visited = {start};
+        queue<string> q;
+        q.push(start);
+        vector<string> order;
+        while (!q.empty()) {
+            string node = q.front();
+            q.pop();
+            order.push_back(node);
+            for (const string& nxt : graph[node])
+                if (!visited.count(nxt)) { visited.insert(nxt); q.push(nxt); }
+        }
+        cout << "BFS from " << start << ": ";
+        printList(order, " -> ");
+    }
+
+    void dfsTraversal(const string& start) {
+        if (!exists(start)) { cout << "User not found.\n"; return; }
+        set<string> visited;
+        vector<string> order;
+        dfs(start, visited, order);
+        cout << "DFS from " << start << ": ";
+        printList(order, " -> ");
+    }
+
+    void loadDemo() {
+        for (string u : {"Alice", "Bob", "Charlie", "David", "Eve", "Frank"}) graph[u];
+        vector<pair<string, string>> edges = {{"Alice", "Bob"}, {"Alice", "Charlie"},
+                                              {"Bob", "David"}, {"Charlie", "David"},
+                                              {"David", "Eve"}};
+        for (auto& e : edges) { graph[e.first].insert(e.second); graph[e.second].insert(e.first); }
+        cout << "Demo network loaded: Alice, Bob, Charlie, David, Eve, Frank.\n";
+    }
+};
+
+static string readLine(const string& prompt) {
+    cout << prompt;
+    string s;
+    getline(cin, s);
+    return s;
+}
+
+int main() {
+    SocialNetwork net;
+    while (true) {
+        cout << "\n===== Social Network Friend Finder =====\n"
+                "1. Add user\n2. Add connection\n3. Show friends\n4. Mutual friends\n"
+                "5. Shortest connection path (BFS)\n6. Suggest friends\n"
+                "7. BFS traversal\n8. DFS traversal\n9. Load demo data\n0. Exit\n";
+        string choice = readLine("Choose: ");
+        if (!cin) break;
+
+        if (choice == "1") net.addUser(readLine("Name: "));
+        else if (choice == "2") { string a = readLine("User 1: "); net.addConnection(a, readLine("User 2: ")); }
+        else if (choice == "3") net.showFriends(readLine("User: "));
+        else if (choice == "4") { string a = readLine("User 1: "); net.mutualFriends(a, readLine("User 2: ")); }
+        else if (choice == "5") { string a = readLine("From: "); net.bfsPath(a, readLine("To: ")); }
+        else if (choice == "6") net.suggestFriends(readLine("User: "));
+        else if (choice == "7") net.bfsTraversal(readLine("Start user: "));
+        else if (choice == "8") net.dfsTraversal(readLine("Start user: "));
+        else if (choice == "9") net.loadDemo();
+        else if (choice == "0") { cout << "Goodbye!\n"; break; }
+        else cout << "Invalid choice.\n";
+    }
+    return 0;
+}
